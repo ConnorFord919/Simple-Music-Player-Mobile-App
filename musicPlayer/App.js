@@ -24,11 +24,13 @@ export default function App() {
   useEffect(() => {
     getPermission();
   }, [])
-  useEffect(() => {
-    if(songs.assets.length > 0){
+  useEffect(() => {  
+    if(songs.assets){
+      const random = Math.floor(Math.random() * songs.assets.length);
       const playBackObj = new Audio.Sound();
-      playBackObj.loadAsync({uri: songs.assets[0].uri}, {shouldPlay: false});
-    }else console.log(songs.assets[0]);
+      console.log("d", random, songs.assets.length)
+      playBackObj.loadAsync({uri: songs.assets[random].uri}, {shouldPlay: true});
+    }
   }, [songs])
   
   return (
