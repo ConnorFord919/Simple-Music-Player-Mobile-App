@@ -1,8 +1,9 @@
-import { View, StyleSheet, Text, SafeAreaView, FlatList, Image, Button, Alert, ScrollView, TouchableOpacity, TouchableHighlight, TouchableOpacityBase, TouchableNativeFeedbackBase, TouchableWithoutFeedback} from 'react-native';
-import { useState, useEffect} from 'react';
+import { View, StyleSheet, Text, SafeAreaView, FlatList, Image, Button, Alert, ScrollView, TouchableOpacity, TouchableHighlight, TouchableOpacityBase, TouchableNativeFeedbackBase, TouchableWithoutFeedback, TextInput, Modal} from 'react-native';
+import { useState, useEffect, useRef} from 'react';
 import * as MediaLibrary from 'expo-media-library';
-import { Audio } from "expo-av";
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from "expo-av";
 import Slider from '@react-native-community/slider';
+import { clearTextBox, savePlaylists, loadPlaylists, addPlaylist, removePlaylist, addToPlaylist, removeFromPlaylist} from './AsyncStorageFunctions';
 
 const filterTitles = (title) => {
   if(title){
@@ -56,6 +57,7 @@ const AudioBar = ({pauseOrPlayAudio, audioPaused, currentSongName, currentSong})
   }, [currentSong]);
   return(
       <View style={styles.audioBar}>
+        <Text style={{textAlign: 'center', fontWeight: 'bold'}} >Currently Playing</Text>
         <Text style={styles.songTitle} >{filterTitles(currentSongName)}</Text>
         <Text style={{marginLeft: 15}} >{`${formatTime(position/1000)} / ${formatTime(duration / 1000)}`}</Text>
         <Slider
@@ -80,6 +82,12 @@ const AudioBar = ({pauseOrPlayAudio, audioPaused, currentSongName, currentSong})
 
 const PlaylistView = ({songs, currentSong, setCurrentSong, setCurrentSongName, setAudioPaused}) => {
   
+  const [playlists, setPlaylists] = useState([]);
+  const [addPlayListFormVisible, setAddPlayListFormVisible] = useState(false);
+  const [playlistName, setPlaylistName] = useState('');
+  const [playListModal, setPlayListModal] = useState(undefined);
+  const [addSongFormVisible, setAddSongFormVisible] = useState(false);
+
   useEffect(() => {
     const dismountSong = async () => {
       if(currentSong){
@@ -87,15 +95,70 @@ const PlaylistView = ({songs, currentSong, setCurrentSong, setCurrentSongName, s
       }
       setCurrentSong(undefined)
     }
+    const fetchPlaylists = async () => {
+      const loadedPlaylists = await loadPlaylists();
+      setPlaylists(loadedPlaylists);
+    };
+    fetchPlaylists();
     dismountSong();
   })
   return (
     <View style={styles.mySongsHeader} >
         <Text>My Playlists</Text>
-        
+        <Button title='Add Playlist' onPress={() => setAddPlayListFormVisible(true)} />
+        <FlatList
+          style={{backgroundColor: 'green'}}
+          data={playlists}
+          keyExtractor={(item) => item.name}
+          renderItem={({ item }) => (
+            <View style={styles.playlistItem}>
+              <Text>{item.name}</Text>
+              <Button title='Edit Playlist' onPress={() => setPlayListModal(item.name)} />
+            </View>
+          )}
+        />
+        {addPlayListFormVisible && 
+          <View style={{backgroundColor: 'red', padding:10}}>
+            <TextInput
+              style={styles.textBox}
+              placeholder="Playlist Title"
+              value={playlistName}
+              onChangeText={setPlaylistName}
+            />
+            <Button title="Add Playlist" onPress={() => {addPlaylist({name: playlistName, songs: []}); setPlaylistName('')}} />
+          </View>
+        }
+        <Modal onRequestClose={() => setPlayListModal(undefined)} visible={playListModal !== undefined}>
+          <View style={styles.playListModal} >
+            <Button title='Close' onPress={() => setPlayListModal(undefined)} />
+            <Button title="Add To Playlist" onPress={() => {setAddPlayListFormVisible(true)}} />
+            <Button title="Delete Playlist" onPress={() => {removePlaylist(playListModal); setPlayListModal(undefined)}}/>
+          </View>
+        </Modal>
+        <Modal onRequestClose={() => setAddSongFormVisible(false)} visible={addSongFormVisible} >
+          <AddSongForm playlist={playListModal} songs={songs} />
+        </Modal>
       </View>
   )
 }
+const AddSongForm = ({playlist, songs}) => {
+  return(
+    <View>
+      <Text>Add Song to {playlist}</Text>
+      <FlatList 
+          data={songs}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity activeOpacity={0.2} style={styles.songCard} onPress={() => selectSong(item)}> 
+              <Text>{filterTitles(item.filename)}</Text>
+              <Button title='Add Song' onPress={() => addToPlaylist(playlist, item)} />
+            </TouchableOpacity>
+          )}
+        />
+    </View>
+  )
+}
+
 const SongView = ({songs, currentSong, setCurrentSong, setCurrentSongName, setAudioPaused}) => {
   const selectSong = async (song) => {
     if(currentSong){
@@ -110,11 +173,12 @@ const SongView = ({songs, currentSong, setCurrentSong, setCurrentSongName, setAu
     setCurrentSong(newSound);
   }
   return (
-    <View style={styles.mySongsHeader} >
-        <Text>My Songs</Text>
+    <View >
+        <Text style={styles.mySongsHeader} >My Songs</Text>
         <FlatList 
-          style={styles.songList}
+          style={currentSong ? styles.songList : {height: '86%'}}
           data={songs}
+          contentContainerStyle={{}}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <TouchableOpacity activeOpacity={0.2} style={styles.songCard} onPress={() => selectSong(item)}> 
@@ -166,13 +230,32 @@ export default function App() {
     }
   }
   useEffect(() => {
+    Audio.setAudioModeAsync({
+      staysActiveInBackground: true,
+      playsInSilentModeIOS: true,
+      interruptionModeIOS: InterruptionModeIOS.DuckOthers,
+      interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: true,
+    });
     getPermission();
   }, [])
   
   return (
     <SafeAreaView style={styles.main}>
       <View style={styles.header} >
-        <Text style={styles.logo} >Musica Max</Text>
+        <TouchableWithoutFeedback onPress={() => {setShowPlaylists(true)}} >
+          <Image 
+            style={styles.icon}
+            source={require('./assets/playlist.png')} 
+          />
+        </TouchableWithoutFeedback>
+        <TouchableWithoutFeedback onPress={() => {setShowPlaylists(false)}}  >
+          <Image 
+            style={styles.icon}
+            source={require('./assets/allSongs.png')}
+          />
+        </TouchableWithoutFeedback>
       </View>
       {showPlaylists ? 
         <PlaylistView setAudioPaused={setAudioPaused} setCurrentSongName={setCurrentSongName} currentSong={currentSong} setCurrentSong={setCurrentSong} songs={songs} /> :
@@ -181,20 +264,6 @@ export default function App() {
       {(currentSong) &&
         <AudioBar currentSong={currentSong} currentSongName={currentSongName} audioPaused={audioPaused} setAudioPaused={setAudioPaused} pauseOrPlayAudio={pauseOrPlayAudio} />
       }
-      <View style={styles.controlBar} >
-        <TouchableWithoutFeedback onPress={() => {setShowPlaylists(true);}} >
-          <Image 
-            style={styles.icon}
-            source={require('./assets/playlist.png')} 
-          />
-        </TouchableWithoutFeedback>
-        <TouchableWithoutFeedback onPress={() => {setShowPlaylists(false);}}  >
-          <Image 
-            style={styles.icon}
-            source={require('./assets/allSongs.png')}
-          />
-        </TouchableWithoutFeedback>
-      </View>
     </SafeAreaView>
   );
 }
@@ -208,13 +277,12 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    height: '200px',
+    height: 100,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: "flex-end",
+    padding: 5,
     backgroundColor:'#72A0C1',
-  },
-  logo: {
-    fontSize: 25,
-    paddingTop: 50,
-    textAlign: 'center'
   },
   playListHeader: {
     backgroundColor: "green",
@@ -235,29 +303,20 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 100,
     backgroundColor: '#fff',
-    borderRadius: 10,
-    marginTop: 10,
     padding:10,
     borderStyle: 'solid',
     borderColor: 'black',
     borderWidth: 2
   },
-  audioBar : {
-
-  }, 
-  controlBar : {
-    width: '100%',
-    height: 50,
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: "#e8e9eb"
-  },
   icon: {
     width:50,
-    height:50
+    height:50,
   },
   songList : {
-    height: 500
+    height:'52%',
+    paddingHorizontal: 0,
+    margin: 0,
+    width: '100%'
   },
   btnPausePlay : {
     width : 50,
@@ -268,12 +327,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around', // Adjust this as needed (e.g., 'flex-start', 'center', 'space-around')
     alignItems: 'center', // Adjust this as needed (e.g., 'flex-start', 'flex-end')
     padding: 10,
-    backgroundColor: '#f5f5f5',
   },
   songTitle: {
     textAlign: 'center', 
     fontWeight: 'bold', 
     fontSize: 18, 
     margin: 10
-  }
+  },
+  textBox: {
+    height: 40,
+    borderColor: 'gray',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    marginBottom: 16,
+  },
 });
