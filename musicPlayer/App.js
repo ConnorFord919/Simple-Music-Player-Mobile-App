@@ -87,6 +87,7 @@ const PlaylistView = ({songs, currentSong, setCurrentSong, setCurrentSongName, s
   const [playlistName, setPlaylistName] = useState('');
   const [playListModal, setPlayListModal] = useState(undefined);
   const [addSongFormVisible, setAddSongFormVisible] = useState(false);
+  const [openPlaylist, setOpenPlaylist ] = useState(false);
 
   useEffect(() => {
     const dismountSong = async () => {
@@ -98,50 +99,58 @@ const PlaylistView = ({songs, currentSong, setCurrentSong, setCurrentSongName, s
     const fetchPlaylists = async () => {
       const loadedPlaylists = await loadPlaylists();
       setPlaylists(loadedPlaylists);
+      console.log('re-rendering')
     };
     fetchPlaylists();
     dismountSong();
-  })
+  }, [playListModal, addPlayListFormVisible])
   return (
     <View style={styles.mySongsHeader} >
-        <Text>My Playlists</Text>
-        <Button title='Add Playlist' onPress={() => setAddPlayListFormVisible(true)} />
-        <FlatList
-          style={{backgroundColor: 'green'}}
-          data={playlists}
-          keyExtractor={(item) => item.name}
-          renderItem={({ item }) => (
-            <View style={styles.playlistItem}>
-              <Text>{item.name}</Text>
-              <Button title='Edit Playlist' onPress={() => setPlayListModal(item.name)} />
-            </View>
-          )}
-        />
-        {addPlayListFormVisible && 
-          <View style={{backgroundColor: 'red', padding:10}}>
-            <TextInput
-              style={styles.textBox}
-              placeholder="Playlist Title"
-              value={playlistName}
-              onChangeText={setPlaylistName}
+        {!openPlaylist && 
+          <View>
+            <Text>My Playlists</Text>
+            <Button title='Add Playlist' onPress={() => setAddPlayListFormVisible(true)} />
+            <FlatList
+              style={{backgroundColor: 'green'}}
+              data={playlists}
+              keyExtractor={(item) => item.name}
+              renderItem={({ item }) => (
+                <View style={styles.playlistItem}>
+                  <TouchableWithoutFeedback  onPress={() => setOpenPlaylist(true)} >
+                    <Text style={{padding:5, fontSize: 50}}>{item.name}</Text>
+                  </TouchableWithoutFeedback>
+                  <Button title='Edit Playlist' onPress={() => setPlayListModal(item.name)} />
+                </View>
+              )}
             />
-            <Button title="Add Playlist" onPress={() => {addPlaylist({name: playlistName, songs: []}); setPlaylistName('')}} />
+            {addPlayListFormVisible && 
+              <View style={{backgroundColor: 'red', padding:10}}>
+                <TextInput
+                  style={styles.textBox}
+                  placeholder="Playlist Title"
+                  value={playlistName}
+                  onChangeText={setPlaylistName}
+                />
+                <Button title="Add Playlist" onPress={() => {addPlaylist({name: playlistName, songs: []}); setPlaylistName(''); setAddPlayListFormVisible(false)}} />
+              </View>
+            }
+            <Modal onRequestClose={() => setPlayListModal(undefined)} visible={playListModal !== undefined}>
+              <View style={styles.playListModal} >
+                <Button title='Close' onPress={() => setPlayListModal(undefined)} />
+                <Button title="Add To Playlist" onPress={() => {setAddSongFormVisible(true)}} />
+                <Button title="Delete Playlist" onPress={() => {removePlaylist(playListModal); setPlayListModal(undefined)}}/>
+              </View>
+            </Modal>
+            <Modal onRequestClose={() => setAddSongFormVisible(false)} visible={addSongFormVisible} >
+              <AddSongForm playlist={playListModal} songs={songs} setAddSongFormVisible={setAddSongFormVisible} setPlayListModal={setPlayListModal} />
+            </Modal>
           </View>
         }
-        <Modal onRequestClose={() => setPlayListModal(undefined)} visible={playListModal !== undefined}>
-          <View style={styles.playListModal} >
-            <Button title='Close' onPress={() => setPlayListModal(undefined)} />
-            <Button title="Add To Playlist" onPress={() => {setAddPlayListFormVisible(true)}} />
-            <Button title="Delete Playlist" onPress={() => {removePlaylist(playListModal); setPlayListModal(undefined)}}/>
-          </View>
-        </Modal>
-        <Modal onRequestClose={() => setAddSongFormVisible(false)} visible={addSongFormVisible} >
-          <AddSongForm playlist={playListModal} songs={songs} />
-        </Modal>
+        {openPlaylist && <InsidePlaylist playlist={playListModal} />}
       </View>
   )
 }
-const AddSongForm = ({playlist, songs}) => {
+const AddSongForm = ({playlist, songs, setAddSongFormVisible, setPlayListModal}) => {
   return(
     <View>
       <Text>Add Song to {playlist}</Text>
@@ -151,7 +160,7 @@ const AddSongForm = ({playlist, songs}) => {
           renderItem={({ item }) => (
             <TouchableOpacity activeOpacity={0.2} style={styles.songCard} onPress={() => selectSong(item)}> 
               <Text>{filterTitles(item.filename)}</Text>
-              <Button title='Add Song' onPress={() => addToPlaylist(playlist, item)} />
+              <Button title='Add Song' onPress={() => {addToPlaylist(playlist, item); setAddSongFormVisible(false); setPlayListModal(undefined)}} />
             </TouchableOpacity>
           )}
         />
@@ -190,12 +199,24 @@ const SongView = ({songs, currentSong, setCurrentSong, setCurrentSongName, setAu
   )
 }
 
+const InsidePlaylist = ({playlist}) => {
+  useEffect(() => {
+    console.log(playlist)
+  }, [])
+  return(
+    <View>
+      <Text>f</Text>
+    </View>
+  )
+}
+
 export default function App() {
   const [songs, setSongs] = useState([]);
   const [currentSong, setCurrentSong] = useState();
   const [currentSongName, setCurrentSongName] = useState();
   const [showPlaylists, setShowPlaylists] = useState(false);
   const [audioPaused, setAudioPaused] = useState(false);
+  
 
   const filterMedia = (media) => {
     const files = [...media.assets];
@@ -261,6 +282,7 @@ export default function App() {
         <PlaylistView setAudioPaused={setAudioPaused} setCurrentSongName={setCurrentSongName} currentSong={currentSong} setCurrentSong={setCurrentSong} songs={songs} /> :
         <SongView setAudioPaused={setAudioPaused} setCurrentSongName={setCurrentSongName} currentSong={currentSong} setCurrentSong={setCurrentSong} songs={songs} />
       }
+      
       {(currentSong) &&
         <AudioBar currentSong={currentSong} currentSongName={currentSongName} audioPaused={audioPaused} setAudioPaused={setAudioPaused} pauseOrPlayAudio={pauseOrPlayAudio} />
       }

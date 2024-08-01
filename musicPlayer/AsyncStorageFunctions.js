@@ -16,7 +16,10 @@ export const savePlaylists = async (playlists) => {
 export const loadPlaylists = async () => {
   try {
     const jsonValue = await AsyncStorage.getItem(PLAYLISTS_KEY);
-    return jsonValue != null ? JSON.parse(jsonValue) : [];
+    if(jsonValue !== null){
+      return Array.isArray(JSON.parse(jsonValue)) ? JSON.parse(jsonValue) : [JSON.parse(jsonValue)];
+    } else return [];
+
   } catch (e) {
     console.error('Error loading playlists:', e);
     return [];
@@ -27,6 +30,8 @@ export const loadPlaylists = async () => {
 export const addPlaylist = async (playlist) => {
   try {
     const playlists = await loadPlaylists();
+    //playlists is not an array
+    console.log(playlists)
     playlists.push(playlist);
     await savePlaylists(playlists);
   } catch (e) {
@@ -44,6 +49,7 @@ export const removePlaylist = async (playlistName) => {
 export const addToPlaylist = async (playlistName, song) => {
   const playlists = await loadPlaylists();
   const targetPlaylist = playlists.find(p => p.name !== playlistName);
+  console.log('f', targetPlaylist[0], playlists[0])
   targetPlaylist.songs.push(song);
   await savePlaylists(targetPlaylist);
 }
