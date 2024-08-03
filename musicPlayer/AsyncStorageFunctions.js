@@ -48,9 +48,9 @@ export const removePlaylist = async (playlistName) => {
 
 export const addToPlaylist = async (playlistName, song) => {
   const playlists = await loadPlaylists();
-  const targetPlaylist = playlists.find(p => p.name !== playlistName);
-  console.log('f', targetPlaylist[0], playlists[0])
+  const targetPlaylist = playlists.find(p => p.name === playlistName);
   targetPlaylist.songs.push(song);
+  console.log(targetPlaylist.songs)
   await savePlaylists(targetPlaylist);
 }
 

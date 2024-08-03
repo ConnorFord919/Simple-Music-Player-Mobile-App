@@ -99,7 +99,6 @@ const PlaylistView = ({songs, currentSong, setCurrentSong, setCurrentSongName, s
     const fetchPlaylists = async () => {
       const loadedPlaylists = await loadPlaylists();
       setPlaylists(loadedPlaylists);
-      console.log('re-rendering')
     };
     fetchPlaylists();
     dismountSong();
@@ -116,7 +115,7 @@ const PlaylistView = ({songs, currentSong, setCurrentSong, setCurrentSongName, s
               keyExtractor={(item) => item.name}
               renderItem={({ item }) => (
                 <View style={styles.playlistItem}>
-                  <TouchableWithoutFeedback  onPress={() => setOpenPlaylist(true)} >
+                  <TouchableWithoutFeedback  onPress={() => {setOpenPlaylist(true); setPlayListModal(item)}} >
                     <Text style={{padding:5, fontSize: 50}}>{item.name}</Text>
                   </TouchableWithoutFeedback>
                   <Button title='Edit Playlist' onPress={() => setPlayListModal(item.name)} />
@@ -201,11 +200,28 @@ const SongView = ({songs, currentSong, setCurrentSong, setCurrentSongName, setAu
 
 const InsidePlaylist = ({playlist}) => {
   useEffect(() => {
-    console.log(playlist)
+
   }, [])
+  const selectSong = () => {
+    //componentize song player then use it to play selected songs.
+    //This function should be global for use in the general songs section
+    //pauseOrPlayAudio, audioPaused, currentSongName, currentSong
+    
+  }
   return(
     <View>
-      <Text>f</Text>
+      <Text style={{textAlign: 'center', fontSize: 30, fontWeight: 'bold'}} >{playlist.name}</Text>
+      <Text style={{fontSize: 20, marginTop: 30}} >Songs</Text>
+      {playlist.songs.length > 0 ? <FlatList 
+        data={playlist.songs}
+        contentContainerStyle={{}}
+        keyExtractor={(item) => item.filename}
+        renderItem={({ item }) => (
+          <TouchableOpacity activeOpacity={0.2} style={styles.songCard} onPress={() => selectSong(item)}> 
+            <Text style={styles.songTitle} >{filterTitles(item.filename)}</Text>
+          </TouchableOpacity>
+        )}
+      /> : <Text style={{textAlign: 'center', marginTop: '50%', fontSize: 25}} >No Songs Found</Text>}
     </View>
   )
 }
@@ -231,7 +247,6 @@ export default function App() {
       await currentSong.playAsync()
       setAudioPaused(false);
     }
-    
   }
 
   const getPermission = async () => {
@@ -279,7 +294,7 @@ export default function App() {
         </TouchableWithoutFeedback>
       </View>
       {showPlaylists ? 
-        <PlaylistView setAudioPaused={setAudioPaused} setCurrentSongName={setCurrentSongName} currentSong={currentSong} setCurrentSong={setCurrentSong} songs={songs} /> :
+        <PlaylistView setAudioPaused={setAudioPaused} setCurrentSongName={setCurrentSongName} currentSong={currentSong} setCurrentSong={setCurrentSong} songs={songs} setShowPlaylists={setShowPlaylists} /> :
         <SongView setAudioPaused={setAudioPaused} setCurrentSongName={setCurrentSongName} currentSong={currentSong} setCurrentSong={setCurrentSong} songs={songs} />
       }
       
