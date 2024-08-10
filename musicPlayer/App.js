@@ -199,14 +199,35 @@ const SongView = ({songs, currentSong, setCurrentSong, setCurrentSongName, setAu
 }
 
 const InsidePlaylist = ({playlist}) => {
+  const [currentSong, setCurrentSong] = useState();
+  const [audioPaused, setAudioPaused] = useState(false);
+  const [currentSongName, setCurrentSongName] = useState();
+  
+
   useEffect(() => {
 
   }, [])
-  const selectSong = () => {
-    //componentize song player then use it to play selected songs.
-    //This function should be global for use in the general songs section
-    //pauseOrPlayAudio, audioPaused, currentSongName, currentSong
-    
+  const selectSong = async (song) => {
+    if(currentSong){
+      await currentSong.unloadAsync();
+    }
+    const { sound: newSound } = await Audio.Sound.createAsync(
+      { uri: song.uri },
+      { shouldPlay: true },
+    );
+    setAudioPaused(false);
+    setCurrentSongName(song.filename)
+    setCurrentSong(newSound);
+  }
+  const pauseOrPlayAudio = async () => {
+    if(!audioPaused){
+      await currentSong.pauseAsync();
+      setAudioPaused(true);
+    } 
+    else{
+      await currentSong.playAsync()
+      setAudioPaused(false);
+    }
   }
   return(
     <View>
@@ -222,6 +243,7 @@ const InsidePlaylist = ({playlist}) => {
           </TouchableOpacity>
         )}
       /> : <Text style={{textAlign: 'center', marginTop: '50%', fontSize: 25}} >No Songs Found</Text>}
+      {currentSong && <AudioBar pauseOrPlayAudio={pauseOrPlayAudio} currentSong={currentSong} currentSongName={currentSongName} audioPaused={audioPaused} />}
     </View>
   )
 }
@@ -238,16 +260,7 @@ export default function App() {
     const files = [...media.assets];
     return files.filter(file => file.filename.split('.').pop() === 'mp3');
   }
-  const pauseOrPlayAudio = async () => {
-    if(!audioPaused){
-      await currentSong.pauseAsync();
-      setAudioPaused(true);
-    } 
-    else{
-      await currentSong.playAsync()
-      setAudioPaused(false);
-    }
-  }
+  
 
   const getPermission = async () => {
     const permission = await MediaLibrary.getPermissionsAsync();
@@ -263,6 +276,16 @@ export default function App() {
       if(status === 'denied' && !canAskAgain){
         Alert.alert("You cannot use this app without the provided permissions");
       }
+    }
+  }
+  const pauseOrPlayAudio = async () => {
+    if(!audioPaused){
+      await currentSong.pauseAsync();
+      setAudioPaused(true);
+    } 
+    else{
+      await currentSong.playAsync()
+      setAudioPaused(false);
     }
   }
   useEffect(() => {
