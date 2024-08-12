@@ -203,7 +203,6 @@ const InsidePlaylist = ({playlist}) => {
   const [audioPaused, setAudioPaused] = useState(false);
   const [currentSongName, setCurrentSongName] = useState();
   
-
   useEffect(() => {
 
   }, [])
