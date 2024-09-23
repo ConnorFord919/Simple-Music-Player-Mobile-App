@@ -23,6 +23,7 @@ export const loadPlaylists = async () => {
   } catch (e) {
     console.error('Error loading playlists:', e);
     return [];
+
   }
 };
 
